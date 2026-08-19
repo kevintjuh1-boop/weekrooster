@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Weekrooster</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#6366f1">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Weekrooster">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --page-bg: #f4f5f7;
+    --card: #ffffff;
+    --border: #e3e5ea;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --accent: #6366f1;
+    --accent-text: #ffffff;
+    --row-h: 48px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--page-bg);
+    color: var(--text);
+    padding: 20px;
+  }
+  .page { max-width: 1300px; margin: 0 auto; }
+
+  .app {
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 10px 26px rgba(0,0,0,.05);
+    overflow: hidden;
+  }
+
+  .apphead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 1.15rem;
+    padding: 18px 20px 4px;
+  }
+  .brand-icon { font-size: 1.2rem; }
+
+  /* Main */
+  .main { flex: 1; min-width: 0; padding: 18px 20px; display: flex; flex-direction: column; }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .weekrange { font-weight: 700; font-size: 1.05rem; margin-left: 4px; }
+
+  button {
+    font-size: 0.85rem;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:active { transform: translateY(1px); }
+  button.icon { padding: 7px 10px; }
+  button.primary {
+    background: var(--accent);
+    color: var(--accent-text);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  button.danger { color: #b91c1c; border-color: #f3c1c1; }
+  .hourcfg { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; color: var(--muted); }
+  .hourcfg input {
+    width: 46px;
+    font-size: 0.85rem;
+    padding: 5px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  /* Day tabs (mobile) */
+  .daytabs {
+    display: none;
+    gap: 4px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+  }
+  .daytab {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 4px 8px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    min-width: 40px;
+  }
+  .daytab .wd { font-size: 0.68rem; color: var(--muted); font-weight: 600; }
+  .daytab .num {
+    font-size: 0.92rem;
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+  }
+  .daytab.today .num { background: #eef0ff; color: var(--accent); font-weight: 700; }
+  .daytab.selected { background: var(--accent); }
+  .daytab.selected .wd { color: #e7e8ff; }
+  .daytab.selected .num { background: transparent; color: #fff; font-weight: 700; }
+  .daytab .evdot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); visibility: hidden; }
+  .daytab .evdot.show { visibility: visible; }
+  .daytab.selected .evdot.show { background: #fff; }
+
+  /* Agenda grid */
+  .agenda-scroll {
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    flex: 1;
+  }
+  .agenda {
+    display: grid;
+    grid-template-rows: auto auto;
+  }
+
+  .head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #fbfbfd;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: var(--muted);
+  }
+  .head .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-top: 4px;
+  }
+  .head.today .num { background: var(--accent); color: #fff; }
+  .corner {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 4;
+    background: #fbfbfd;
+    border-bottom: 1px solid var(--border);
+    border-right: 2px solid var(--border);
+  }
+
+  .timeaxis {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--card);
+    border-right: 2px solid var(--border);
+    width: 52px;
+  }
+  .timeaxis .tl {
+    height: var(--row-h);
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-align: right;
+    padding: 0 6px;
+    transform: translateY(-6px);
+  }
+
+  .daybody {
+    position: relative;
+    border-right: 1px solid var(--border);
+    background-image: repeating-linear-gradient(to bottom, var(--border) 0, var(--border) 1px, transparent 1px, transparent var(--row-h));
+    cursor: pointer;
+  }
+
+  .nowline {
+    position: absolute;
+    left: 0; right: 0;
+    height: 0;
+    border-top: 2px solid #ef4444;
+    z-index: 1;
+  }
+  .nowline::before {
+    content: "";
+    position: absolute;
+    left: -4px; top: -4px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+  }
+
+  .event {
+    position: absolute;
+    border-radius: 7px;
+    border-left: 3px solid var(--accent);
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 4px 7px;
+    font-size: 0.78rem;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,.06);
+    z-index: 2;
+  }
+  .event:hover { filter: brightness(0.97); }
+  .event .et { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .event .el { font-size: 0.7rem; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .fab {
+    display: none;
+    position: fixed;
+    bottom: 22px; right: 22px;
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 1.6rem;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(99,102,241,.45);
+    border: none;
+    cursor: pointer;
+    z-index: 10;
+  }
+
+  /* Modal */
+  dialog {
+    border: none;
+    border-radius: 14px;
+    padding: 0;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    box-shadow: 0 20px 50px rgba(0,0,0,.25);
+  }
+  dialog::backdrop { background: rgba(20,20,30,.4); }
+  .dialog-inner { padding: 18px 18px 14px; }
+  .dialog-inner h3 { margin: 0 0 14px; font-size: 1.05rem; }
+  .field { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+  .field input, .field select {
+    font-size: 0.95rem;
+    padding: 8px 9px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    color: var(--text);
+    background: #fff;
+  }
+  .row2 { display: flex; gap: 10px; }
+  .row2 .field { flex: 1; }
+  .dialog-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+    gap: 8px;
+  }
+  .dialog-actions .right { display: flex; gap: 8px; margin-left: auto; }
+
+  /* Mobiel */
+  @media (max-width: 760px) {
+    body { padding: 0; }
+    .page { max-width: 100%; }
+    .app { border-radius: 0; box-shadow: none; }
+    .apphead { padding: 14px 12px 2px; }
+    .main { padding: 12px; }
+    .toolbar-right .hourcfg { order: 3; width: 100%; }
+    .daytabs { display: flex; }
+    .fab { display: flex; }
+    button.printOnly { display: none; }
+  }
+
+  /* Print */
+  @media print {
+    body { background: #fff; padding: 0; }
+    .apphead, .toolbar, .daytabs, .fab, dialog { display: none !important; }
+    .app { box-shadow: none; border-radius: 0; display: block; }
+    .main { padding: 0; }
+    .agenda-scroll { border: none; overflow: visible; }
+    .head, .corner, .timeaxis { position: static; }
+    .event { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none; }
+    @page { size: landscape; margin: 10mm; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="app">
+    <div class="apphead"><span class="brand-icon">🗓️</span> Weekrooster</div>
+
+    <div class="main">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button id="todayBtn">Vandaag</button>
+          <button id="prevBtn" class="icon">&larr;</button>
+          <button id="nextBtn" class="icon">&rarr;</button>
+          <span class="weekrange" id="weekrange"></span>
+        </div>
+        <div class="toolbar-right">
+          <span class="hourcfg">
+            Van <input type="number" id="hourStart" min="0" max="23">
+            Tot <input type="number" id="hourEnd" min="0" max="23">
+          </span>
+          <button id="printBtn" class="printOnly">Printen</button>
+          <button id="clearBtn" class="danger printOnly">Wis week</button>
+          <button id="newBtn" class="primary">+ Nieuw</button>
+        </div>
+      </div>
+
+      <div class="daytabs" id="daytabs"></div>
+
+      <div class="agenda-scroll">
+        <div class="agenda" id="agenda"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="fabBtn">+</button>
+
+<dialog id="eventDialog">
+  <form class="dialog-inner" id="eventForm">
+    <h3 id="dialogTitle">Nieuwe afspraak</h3>
+    <div class="field">
+      <label for="evTitle">Titel</label>
+      <input type="text" id="evTitle" required placeholder="Bijv. Team overleg">
+    </div>
+    <div class="field">
+      <label for="evLocation">Locatie (optioneel)</label>
+      <input type="text" id="evLocation" placeholder="Bijv. Kantoor">
+    </div>
+    <div class="field">
+      <label for="evDate">Datum</label>
+      <input type="date" id="evDate" required>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="evStart">Van</label>
+        <select id="evStart"></select>
+      </div>
+      <div class="field">
+        <label for="evEnd">Tot</label>
+        <select id="evEnd"></select>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" id="evDelete" class="danger" style="display:none">Verwijderen</button>
+      <div class="right">
+        <button type="button" id="evCancel">Annuleren</button>
+        <button type="submit" class="primary">Opslaan</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  var DAYS_SHORT = ["MA", "DI", "WO", "DO", "VR", "ZA", "ZO"];
+  var DAYS_LETTER = ["M", "D", "W", "D", "V", "Z", "Z"];
+
+  var agendaEl = document.getElementById("agenda");
+  var daytabsEl = document.getElementById("daytabs");
+  var weekrangeEl = document.getElementById("weekrange");
+  var hourStartInput = document.getElementById("hourStart");
+  var hourEndInput = document.getElementById("hourEnd");
+
+  var dialog = document.getElementById("eventDialog");
+  var eventForm = document.getElementById("eventForm");
+  var dialogTitle = document.getElementById("dialogTitle");
+  var evTitle = document.getElementById("evTitle");
+  var evLocation = document.getElementById("evLocation");
+  var evDate = document.getElementById("evDate");
+  var evStart = document.getElementById("evStart");
+  var evEnd = document.getElementById("evEnd");
+  var evDelete = document.getElementById("evDelete");
+
+  function toISODate(d) {
+    var y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+  function parseISODate(s) {
+    var p = s.split("-").map(Number);
+    return new Date(p[0], p[1] - 1, p[2]);
+  }
+  function mondayOf(date) {
+    var d = new Date(date);
+    var day = d.getDay();
+    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  function addDays(date, n) { var d = new Date(date); d.setDate(d.getDate() + n); return d; }
+  function isSameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+  function fmtShort(d) { return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short" }); }
+  function isMobile() { return window.matchMedia("(max-width: 760px)").matches; }
+  function pad2(n) { return String(n).padStart(2, "0"); }
+
+  // ---- settings ----
+  var SETTINGS_KEY = "weekrooster:settings";
+  function loadSettings() {
+    var s = {};
+    try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"); } catch (e) {}
+    if (typeof s.start !== "number" || isNaN(s.start)) s.start = 7;
+    if (typeof s.end !== "number" || isNaN(s.end)) s.end = 22;
+    if (s.end <= s.start) s.end = s.start + 1;
+    return s;
+  }
+  function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+
+  // ---- events ----
+  var EVENTS_KEY = "weekrooster:events";
+  function loadEvents() {
+    try { return JSON.parse(localStorage.getItem(EVENTS_KEY) || "[]"); } catch (e) { return []; }
+  }
+  function saveEvents() { localStorage.setItem(EVENTS_KEY, JSON.stringify(events)); }
+  function genId() { return "e" + Date.now() + Math.floor(Math.random() * 1000); }
+
+  var settings = loadSettings();
+  var events = loadEvents();
+  var currentMonday = mondayOf(new Date());
+  var selectedDate = new Date();
+  var editingId = null;
+
+  // ---- header label ----
+  function updateWeekrange() {
+    var sunday = addDays(currentMonday, 6);
+    weekrangeEl.textContent = fmtShort(currentMonday) + " – " + fmtShort(sunday);
+  }
+
+  // ---- day tabs (mobile) ----
+  function dayHasEvents(iso) {
+    return events.some(function (ev) { return ev.date === iso; });
+  }
+  function buildDayTabs() {
+    daytabsEl.innerHTML = "";
+    var today = new Date();
+    for (var i = 0; i < 7; i++) {
+      var d = addDays(currentMonday, i);
+      var iso = toISODate(d);
+      var btn = document.createElement("button");
+      btn.className = "daytab" + (isSameDay(d, today) ? " today" : "") + (isSameDay(d, selectedDate) ? " selected" : "");
+      var wd = document.createElement("div"); wd.className = "wd"; wd.textContent = DAYS_LETTER[i];
+      var num = document.createElement("div"); num.className = "num"; num.textContent = d.getDate();
+      var dot = document.createElement("div"); dot.className = "evdot" + (dayHasEvents(iso) ? " show" : "");
+      btn.appendChild(wd); btn.appendChild(num); btn.appendChild(dot);
+      btn.addEventListener("click", function (dCopy) {
+        return function () { selectedDate = dCopy; updateAndRender(); };
+      }(d));
+      daytabsEl.appendChild(btn);
+    }
+  }
+
+  // ---- overlap layout ----
+  function layoutDayEvents(list) {
+    list.sort(function (a, b) { return a.startHour - b.startHour || a.endHour - b.endHour; });
+    var colEnds = [];
+    list.forEach(function (ev) {
+      var placed = false;
+      for (var c = 0; c < colEnds.length; c++) {
+        if (colEnds[c] <= ev.startHour) { ev._col = c; colEnds[c] = ev.endHour; placed = true; break; }
+      }
+      if (!placed) { ev._col = colEnds.length; colEnds.push(ev.endHour); }
+    });
+    list.forEach(function (ev) { ev._cols = colEnds.length; });
+    return list;
+  }
+
+  // ---- build one day column ----
+  function buildDayBody(dateObj) {
+    var iso = toISODate(dateObj);
+    var numHours = settings.end - settings.start;
+    var cell = document.createElement("div");
+    cell.className = "daybody";
+    cell.style.height = (numHours * 48) + "px";
+
+    cell.addEventListener("click", function (e) {
+      if (e.target.closest(".event")) return;
+      var rect = cell.getBoundingClientRect();
+      var y = e.clientY - rect.top;
+      var hour = settings.start + Math.floor(y / 48);
+      hour = Math.max(settings.start, Math.min(settings.end - 1, hour));
+      openModal({ date: iso, startHour: hour, endHour: hour + 1 });
+    });
+
+    var dayEvents = events.filter(function (ev) { return ev.date === iso; });
+    dayEvents = layoutDayEvents(dayEvents);
+    dayEvents.forEach(function (ev) {
+      var top = (Math.max(ev.startHour, settings.start) - settings.start) * 48;
+      var height = (Math.min(ev.endHour, settings.end) - Math.max(ev.startHour, settings.start)) * 48;
+      if (height <= 0) return;
+      var widthPct = 100 / ev._cols;
+      var block = document.createElement("div");
+      block.className = "event";
+      block.style.top = top + "px";
+      block.style.height = (height - 2) + "px";
+      block.style.left = "calc(" + (ev._col * widthPct) + "% + 3px)";
+      block.style.width = "calc(" + widthPct + "% - 6px)";
+      var et = document.createElement("div"); et.className = "et"; et.textContent = ev.title;
+      block.appendChild(et);
+      if (ev.location) { var el = document.createElement("div"); el.className = "el"; el.textContent = ev.location; block.appendChild(el); }
+      block.addEventListener("click", function (e) { e.stopPropagation(); openModal({ editing: ev }); });
+      cell.appendChild(block);
+    });
+
+    var now = new Date();
+    if (isSameDay(dateObj, now)) {
+      var nowHour = now.getHours() + now.getMinutes() / 60;
+      if (nowHour >= settings.start && nowHour <= settings.end) {
+        var line = document.createElement("div");
+        line.className = "nowline";
+        line.style.top = ((nowHour - settings.start) * 48) + "px";
+        cell.appendChild(line);
+      }
+    }
+    return cell;
+  }
+
+  // ---- build the whole agenda grid for given dates ----
+  function renderAgenda(dates) {
+    agendaEl.innerHTML = "";
+    agendaEl.style.gridTemplateColumns = "52px repeat(" + dates.length + ", minmax(" + (dates.length > 1 ? 120 : 240) + "px, 1fr))";
+
+    var corner = document.createElement("div");
+    corner.className = "corner";
+    agendaEl.appendChild(corner);
+
+    var today = new Date();
+    dates.forEach(function (d, i) {
+      var h = document.createElement("div");
+      h.className = "head" + (isSameDay(d, today) ? " today" : "");
+      var wdLabel = dates.length > 1 ? DAYS_SHORT[(d.getDay() + 6) % 7] : DAYS_SHORT[(d.getDay() + 6) % 7];
+      h.innerHTML = "<div>" + wdLabel + "</div><div class='num'>" + d.getDate() + "</div>";
+      agendaEl.appendChild(h);
+    });
+
+    var timeaxis = document.createElement("div");
+    timeaxis.className = "timeaxis";
+    for (var hour = settings.start; hour < settings.end; hour++) {
+      var tl = document.createElement("div");
+      tl.className = "tl";
+      tl.textContent = pad2(hour) + ":00";
+      timeaxis.appendChild(tl);
+    }
+    agendaEl.appendChild(timeaxis);
+
+    dates.forEach(function (d) { agendaEl.appendChild(buildDayBody(d)); });
+  }
+
+  function updateAndRender() {
+    updateWeekrange();
+    if (isMobile()) {
+      if (selectedDate < currentMonday || selectedDate > addDays(currentMonday, 6)) selectedDate = new Date(currentMonday);
+      buildDayTabs();
+      renderAgenda([selectedDate]);
+    } else {
+      var dates = []; for (var i = 0; i < 7; i++) dates.push(addDays(currentMonday, i));
+      renderAgenda(dates);
+    }
+  }
+
+  // ---- navigation ----
+  function goToMonday(newMonday) {
+    currentMonday = mondayOf(newMonday);
+    if (selectedDate < currentMonday || selectedDate > addDays(currentMonday, 6)) selectedDate = new Date(currentMonday);
+    updateAndRender();
+  }
+  document.getElementById("todayBtn").addEventListener("click", function () { selectedDate = new Date(); goToMonday(new Date()); });
+  document.getElementById("prevBtn").addEventListener("click", function () { goToMonday(addDays(currentMonday, -7)); });
+  document.getElementById("nextBtn").addEventListener("click", function () { goToMonday(addDays(currentMonday, 7)); });
+
+  // ---- hour range settings ----
+  function onRangeChange() {
+    var s = parseInt(hourStartInput.value, 10), e = parseInt(hourEndInput.value, 10);
+    if (isNaN(s)) s = 7; if (isNaN(e)) e = 22;
+    s = Math.max(0, Math.min(23, s)); e = Math.max(0, Math.min(23, e));
+    if (e <= s) e = Math.min(23, s + 1);
+    settings = { start: s, end: e };
+    hourStartInput.value = s; hourEndInput.value = e;
+    saveSettings();
+    updateAndRender();
+  }
+  hourStartInput.addEventListener("change", onRangeChange);
+  hourEndInput.addEventListener("change", onRangeChange);
+
+  // ---- clear week ----
+  document.getElementById("clearBtn").addEventListener("click", function () {
+    if (!confirm("Weet je zeker dat je alle afspraken in deze week wilt wissen?")) return;
+    var sunday = toISODate(addDays(currentMonday, 6));
+    var mondayISO = toISODate(currentMonday);
+    events = events.filter(function (ev) { return ev.date < mondayISO || ev.date > sunday; });
+    saveEvents();
+    updateAndRender();
+  });
+
+  // ---- print ----
+  document.getElementById("printBtn").addEventListener("click", function () { window.print(); });
+  window.addEventListener("beforeprint", function () {
+    var dates = []; for (var i = 0; i < 7; i++) dates.push(addDays(currentMonday, i));
+    renderAgenda(dates);
+  });
+  window.addEventListener("afterprint", updateAndRender);
+
+  // ---- modal ----
+  function fillHourSelect(select, from, to, selected) {
+    select.innerHTML = "";
+    for (var h = from; h <= to; h++) {
+      var opt = document.createElement("option");
+      opt.value = h; opt.textContent = pad2(h) + ":00";
+      if (h === selected) opt.selected = true;
+      select.appendChild(opt);
+    }
+  }
+  function refreshEndOptions() {
+    var s = parseInt(evStart.value, 10);
+    var curEnd = parseInt(evEnd.value, 10);
+    var newEnd = (curEnd > s) ? curEnd : s + 1;
+    fillHourSelect(evEnd, s + 1, settings.end, newEnd);
+  }
+  evStart.addEventListener("change", refreshEndOptions);
+
+  function openModal(opts) {
+    if (opts.editing) {
+      editingId = opts.editing.id;
+      dialogTitle.textContent = "Afspraak bewerken";
+      evTitle.value = opts.editing.title;
+      evLocation.value = opts.editing.location || "";
+      evDate.value = opts.editing.date;
+      fillHourSelect(evStart, settings.start, settings.end - 1, opts.editing.startHour);
+      fillHourSelect(evEnd, opts.editing.startHour + 1, settings.end, opts.editing.endHour);
+      evDelete.style.display = "inline-block";
+    } else {
+      editingId = null;
+      dialogTitle.textContent = "Nieuwe afspraak";
+      evTitle.value = "";
+      evLocation.value = "";
+      evDate.value = opts.date;
+      fillHourSelect(evStart, settings.start, settings.end - 1, opts.startHour);
+      fillHourSelect(evEnd, opts.startHour + 1, settings.end, opts.endHour);
+      evDelete.style.display = "none";
+    }
+    dialog.showModal();
+    evTitle.focus();
+  }
+
+  document.getElementById("newBtn").addEventListener("click", function () {
+    var d = isMobile() ? selectedDate : (new Date() >= currentMonday && new Date() <= addDays(currentMonday, 6) ? new Date() : currentMonday);
+    openModal({ date: toISODate(d), startHour: settings.start, endHour: settings.start + 1 });
+  });
+  document.getElementById("fabBtn").addEventListener("click", function () {
+    openModal({ date: toISODate(selectedDate), startHour: settings.start, endHour: settings.start + 1 });
+  });
+  document.getElementById("evCancel").addEventListener("click", function () { dialog.close(); });
+
+  eventForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = evTitle.value.trim();
+    if (!title) { evTitle.focus(); return; }
+    var obj = {
+      id: editingId || genId(),
+      date: evDate.value,
+      startHour: parseInt(evStart.value, 10),
+      endHour: parseInt(evEnd.value, 10),
+      title: title,
+      location: evLocation.value.trim()
+    };
+    if (editingId) {
+      var idx = events.findIndex(function (ev) { return ev.id === editingId; });
+      if (idx >= 0) events[idx] = obj; else events.push(obj);
+    } else {
+      events.push(obj);
+    }
+    saveEvents();
+    dialog.close();
+    updateAndRender();
+  });
+
+  evDelete.addEventListener("click", function () {
+    if (!editingId) return;
+    events = events.filter(function (ev) { return ev.id !== editingId; });
+    saveEvents();
+    dialog.close();
+    updateAndRender();
+  });
+
+  // ---- resize handling ----
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(updateAndRender, 150);
+  });
+
+  // ---- init ----
+  hourStartInput.value = settings.start;
+  hourEndInput.value = settings.end;
+  updateAndRender();
+  setInterval(updateAndRender, 60000);
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
