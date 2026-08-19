@@ -1,27 +1,22 @@
 # Weekrooster
 
-Heel simpele weekrooster-app. Één bestand (`index.html`), geen installatie of internet nodig.
+Heel simpele weekrooster-app, nu ook installeerbaar als app op je telefoon (PWA).
+
+**Live app:** https://kevintjuh1-boop.github.io/weekrooster/
+
+## Op je telefoon installeren
+1. Open bovenstaande link in Chrome (Android) of Safari (iPhone).
+2. **Android/Chrome:** tik op het menu (⋮) → "App installeren" (of "Toevoegen aan startscherm").
+   **iPhone/Safari:** tik op het deel-icoon (□↑) → "Zet op beginscherm".
+3. Je krijgt een icoon op je startscherm dat opent als een echte app (geen browserbalk) en ook offline werkt.
+
+Let op: al je afspraken worden lokaal op je telefoon opgeslagen (in de app, niet in de cloud). Er is geen account en niets wordt gesynchroniseerd tussen apparaten — vul je iets in op je telefoon, dan zie je dat niet automatisch terug op je computer.
 
 ## Gebruik op je computer
-Dubbelklik op `index.html` — opent in je browser. Alles wat je invult wordt automatisch lokaal opgeslagen (in de browser, per week), ook na herstarten.
+Open dezelfde link gewoon in je browser. Werkt ook prima zonder installeren.
 
-## Gebruik op je telefoon
-Twee opties:
-
-**Optie A — bestand overzetten**
-Stuur `index.html` naar jezelf (bijv. via WhatsApp/e-mail/AirDrop) en open het op je telefoon. Werkt volledig offline.
-
-**Optie B — via wifi vanaf je computer**
-Als je hem ook op je computer wilt bijhouden en synchroon wilt zien op je telefoon binnen hetzelfde wifi-netwerk:
-1. Open een terminal in deze map.
-2. Start een lokaal servertje:
-   ```bash
-   python -m http.server 8000
-   ```
-3. Zoek het IP-adres van je computer (bijv. `ipconfig` op Windows, kijk bij "IPv4-adres").
-4. Open op je telefoon in de browser: `http://<dat-ip-adres>:8000`
-
-Let op: bij optie B werkt het rooster nog steeds per apparaat/browser (opslag gebeurt lokaal, niet gedeeld tussen computer en telefoon).
+## Iets aanpassen aan de app
+De broncode staat in dit mapje (`index.html`, `manifest.json`, `sw.js`, `icons/`). Na een wijziging: committen en pushen naar de `main`-branch van [github.com/kevintjuh1-boop/weekrooster](https://github.com/kevintjuh1-boop/weekrooster) — GitHub Pages werkt de live app dan automatisch bij (duurt meestal 1-2 minuten).
 
 ## Afspraken toevoegen
 Klik op een leeg tijdvak in het rooster (of op "+ Nieuw") om een afspraak in te vullen: titel, locatie (optioneel), datum, begin- en eindtijd (op het hele uur). Klik op een bestaande afspraak om 'm te bewerken of te verwijderen.
