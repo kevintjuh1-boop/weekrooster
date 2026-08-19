@@ -82,14 +82,6 @@
     font-weight: 600;
   }
   button.danger { color: #b91c1c; border-color: #f3c1c1; }
-  .hourcfg { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; color: var(--muted); }
-  .hourcfg input {
-    width: 46px;
-    font-size: 0.85rem;
-    padding: 5px 6px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-  }
 
   /* Day tabs (mobile) */
   .daytabs {
@@ -132,6 +124,7 @@
     border: 1px solid var(--border);
     border-radius: 12px;
     flex: 1;
+    max-height: calc(100dvh - 230px);
   }
   .agenda {
     display: grid;
@@ -287,7 +280,7 @@
     .app { border-radius: 0; box-shadow: none; }
     .apphead { padding: 14px 12px 2px; }
     .main { padding: 12px; }
-    .toolbar-right .hourcfg { order: 3; width: 100%; }
+    .agenda-scroll { max-height: calc(100dvh - 300px); }
     .daytabs { display: flex; }
     .fab { display: flex; }
     button.printOnly { display: none; }
@@ -299,7 +292,7 @@
     .apphead, .toolbar, .daytabs, .fab, dialog { display: none !important; }
     .app { box-shadow: none; border-radius: 0; display: block; }
     .main { padding: 0; }
-    .agenda-scroll { border: none; overflow: visible; }
+    .agenda-scroll { border: none; overflow: visible; max-height: none; }
     .head, .corner, .timeaxis { position: static; }
     .event { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none; }
     @page { size: landscape; margin: 10mm; }
@@ -320,10 +313,6 @@
           <span class="weekrange" id="weekrange"></span>
         </div>
         <div class="toolbar-right">
-          <span class="hourcfg">
-            Van <input type="number" id="hourStart" min="0" max="23">
-            Tot <input type="number" id="hourEnd" min="0" max="23">
-          </span>
           <button id="printBtn" class="printOnly">Printen</button>
           <button id="clearBtn" class="danger printOnly">Wis week</button>
           <button id="newBtn" class="primary">+ Nieuw</button>
@@ -381,11 +370,13 @@
   var DAYS_SHORT = ["MA", "DI", "WO", "DO", "VR", "ZA", "ZO"];
   var DAYS_LETTER = ["M", "D", "W", "D", "V", "Z", "Z"];
 
+  var DAY_START = 0;
+  var DAY_END = 24;
+
+  var agendaScrollEl = document.querySelector(".agenda-scroll");
   var agendaEl = document.getElementById("agenda");
   var daytabsEl = document.getElementById("daytabs");
   var weekrangeEl = document.getElementById("weekrange");
-  var hourStartInput = document.getElementById("hourStart");
-  var hourEndInput = document.getElementById("hourEnd");
 
   var dialog = document.getElementById("eventDialog");
   var eventForm = document.getElementById("eventForm");
@@ -418,18 +409,6 @@
   function isMobile() { return window.matchMedia("(max-width: 760px)").matches; }
   function pad2(n) { return String(n).padStart(2, "0"); }
 
-  // ---- settings ----
-  var SETTINGS_KEY = "weekrooster:settings";
-  function loadSettings() {
-    var s = {};
-    try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"); } catch (e) {}
-    if (typeof s.start !== "number" || isNaN(s.start)) s.start = 7;
-    if (typeof s.end !== "number" || isNaN(s.end)) s.end = 22;
-    if (s.end <= s.start) s.end = s.start + 1;
-    return s;
-  }
-  function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
-
   // ---- events ----
   var EVENTS_KEY = "weekrooster:events";
   function loadEvents() {
@@ -438,7 +417,6 @@
   function saveEvents() { localStorage.setItem(EVENTS_KEY, JSON.stringify(events)); }
   function genId() { return "e" + Date.now() + Math.floor(Math.random() * 1000); }
 
-  var settings = loadSettings();
   var events = loadEvents();
   var currentMonday = mondayOf(new Date());
   var selectedDate = new Date();
@@ -491,7 +469,7 @@
   // ---- build one day column ----
   function buildDayBody(dateObj) {
     var iso = toISODate(dateObj);
-    var numHours = settings.end - settings.start;
+    var numHours = DAY_END - DAY_START;
     var cell = document.createElement("div");
     cell.className = "daybody";
     cell.style.height = (numHours * 48) + "px";
@@ -500,16 +478,16 @@
       if (e.target.closest(".event")) return;
       var rect = cell.getBoundingClientRect();
       var y = e.clientY - rect.top;
-      var hour = settings.start + Math.floor(y / 48);
-      hour = Math.max(settings.start, Math.min(settings.end - 1, hour));
+      var hour = DAY_START + Math.floor(y / 48);
+      hour = Math.max(DAY_START, Math.min(DAY_END - 1, hour));
       openModal({ date: iso, startHour: hour, endHour: hour + 1 });
     });
 
     var dayEvents = events.filter(function (ev) { return ev.date === iso; });
     dayEvents = layoutDayEvents(dayEvents);
     dayEvents.forEach(function (ev) {
-      var top = (Math.max(ev.startHour, settings.start) - settings.start) * 48;
-      var height = (Math.min(ev.endHour, settings.end) - Math.max(ev.startHour, settings.start)) * 48;
+      var top = (Math.max(ev.startHour, DAY_START) - DAY_START) * 48;
+      var height = (Math.min(ev.endHour, DAY_END) - Math.max(ev.startHour, DAY_START)) * 48;
       if (height <= 0) return;
       var widthPct = 100 / ev._cols;
       var block = document.createElement("div");
@@ -528,10 +506,10 @@
     var now = new Date();
     if (isSameDay(dateObj, now)) {
       var nowHour = now.getHours() + now.getMinutes() / 60;
-      if (nowHour >= settings.start && nowHour <= settings.end) {
+      if (nowHour >= DAY_START && nowHour <= DAY_END) {
         var line = document.createElement("div");
         line.className = "nowline";
-        line.style.top = ((nowHour - settings.start) * 48) + "px";
+        line.style.top = ((nowHour - DAY_START) * 48) + "px";
         cell.appendChild(line);
       }
     }
@@ -558,7 +536,7 @@
 
     var timeaxis = document.createElement("div");
     timeaxis.className = "timeaxis";
-    for (var hour = settings.start; hour < settings.end; hour++) {
+    for (var hour = DAY_START; hour < DAY_END; hour++) {
       var tl = document.createElement("div");
       tl.className = "tl";
       tl.textContent = pad2(hour) + ":00";
@@ -567,6 +545,15 @@
     agendaEl.appendChild(timeaxis);
 
     dates.forEach(function (d) { agendaEl.appendChild(buildDayBody(d)); });
+  }
+
+  var hasScrolledInitially = false;
+  function scrollToSensibleTime() {
+    if (hasScrolledInitially) return;
+    hasScrolledInitially = true;
+    var now = new Date();
+    var hour = Math.max(DAY_START, Math.min(DAY_END - 1, now.getHours() - 1));
+    agendaScrollEl.scrollTop = (hour - DAY_START) * 48;
   }
 
   function updateAndRender() {
@@ -579,6 +566,7 @@
       var dates = []; for (var i = 0; i < 7; i++) dates.push(addDays(currentMonday, i));
       renderAgenda(dates);
     }
+    scrollToSensibleTime();
   }
 
   // ---- navigation ----
@@ -590,20 +578,6 @@
   document.getElementById("todayBtn").addEventListener("click", function () { selectedDate = new Date(); goToMonday(new Date()); });
   document.getElementById("prevBtn").addEventListener("click", function () { goToMonday(addDays(currentMonday, -7)); });
   document.getElementById("nextBtn").addEventListener("click", function () { goToMonday(addDays(currentMonday, 7)); });
-
-  // ---- hour range settings ----
-  function onRangeChange() {
-    var s = parseInt(hourStartInput.value, 10), e = parseInt(hourEndInput.value, 10);
-    if (isNaN(s)) s = 7; if (isNaN(e)) e = 22;
-    s = Math.max(0, Math.min(23, s)); e = Math.max(0, Math.min(23, e));
-    if (e <= s) e = Math.min(23, s + 1);
-    settings = { start: s, end: e };
-    hourStartInput.value = s; hourEndInput.value = e;
-    saveSettings();
-    updateAndRender();
-  }
-  hourStartInput.addEventListener("change", onRangeChange);
-  hourEndInput.addEventListener("change", onRangeChange);
 
   // ---- clear week ----
   document.getElementById("clearBtn").addEventListener("click", function () {
@@ -637,7 +611,7 @@
     var s = parseInt(evStart.value, 10);
     var curEnd = parseInt(evEnd.value, 10);
     var newEnd = (curEnd > s) ? curEnd : s + 1;
-    fillHourSelect(evEnd, s + 1, settings.end, newEnd);
+    fillHourSelect(evEnd, s + 1, DAY_END, newEnd);
   }
   evStart.addEventListener("change", refreshEndOptions);
 
@@ -648,8 +622,8 @@
       evTitle.value = opts.editing.title;
       evLocation.value = opts.editing.location || "";
       evDate.value = opts.editing.date;
-      fillHourSelect(evStart, settings.start, settings.end - 1, opts.editing.startHour);
-      fillHourSelect(evEnd, opts.editing.startHour + 1, settings.end, opts.editing.endHour);
+      fillHourSelect(evStart, DAY_START, DAY_END - 1, opts.editing.startHour);
+      fillHourSelect(evEnd, opts.editing.startHour + 1, DAY_END, opts.editing.endHour);
       evDelete.style.display = "inline-block";
     } else {
       editingId = null;
@@ -657,20 +631,26 @@
       evTitle.value = "";
       evLocation.value = "";
       evDate.value = opts.date;
-      fillHourSelect(evStart, settings.start, settings.end - 1, opts.startHour);
-      fillHourSelect(evEnd, opts.startHour + 1, settings.end, opts.endHour);
+      fillHourSelect(evStart, DAY_START, DAY_END - 1, opts.startHour);
+      fillHourSelect(evEnd, opts.startHour + 1, DAY_END, opts.endHour);
       evDelete.style.display = "none";
     }
     dialog.showModal();
     evTitle.focus();
   }
 
+  function defaultNewHour() {
+    var now = new Date();
+    return Math.max(DAY_START, Math.min(DAY_END - 1, now.getHours()));
+  }
   document.getElementById("newBtn").addEventListener("click", function () {
     var d = isMobile() ? selectedDate : (new Date() >= currentMonday && new Date() <= addDays(currentMonday, 6) ? new Date() : currentMonday);
-    openModal({ date: toISODate(d), startHour: settings.start, endHour: settings.start + 1 });
+    var h = defaultNewHour();
+    openModal({ date: toISODate(d), startHour: h, endHour: h + 1 });
   });
   document.getElementById("fabBtn").addEventListener("click", function () {
-    openModal({ date: toISODate(selectedDate), startHour: settings.start, endHour: settings.start + 1 });
+    var h = defaultNewHour();
+    openModal({ date: toISODate(selectedDate), startHour: h, endHour: h + 1 });
   });
   document.getElementById("evCancel").addEventListener("click", function () { dialog.close(); });
 
@@ -713,8 +693,6 @@
   });
 
   // ---- init ----
-  hourStartInput.value = settings.start;
-  hourEndInput.value = settings.end;
   updateAndRender();
   setInterval(updateAndRender, 60000);
 
