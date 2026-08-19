@@ -1,4 +1,4 @@
-var CACHE_NAME = "weekrooster-v2";
+var CACHE_NAME = "weekrooster-v3";
 var ASSETS = [
   "./",
   "./index.html",

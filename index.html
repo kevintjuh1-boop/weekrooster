@@ -283,19 +283,39 @@
     .agenda-scroll { max-height: calc(100dvh - 300px); }
     .daytabs { display: flex; }
     .fab { display: flex; }
-    button.printOnly { display: none; }
   }
+
+  /* Grote, duidelijke printweergave (dagen als lijst i.p.v. het rooster) */
+  .print-view { display: none; }
+  .print-view .pv-title { font-size: 24px; font-weight: 800; margin: 0 0 4px; }
+  .print-view .pv-sub { font-size: 14px; color: #444; margin: 0 0 22px; }
+  .print-view .pv-day { margin-bottom: 24px; break-inside: avoid; }
+  .print-view .pv-day h2 {
+    font-size: 20px;
+    font-weight: 800;
+    margin: 0 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #111;
+  }
+  .print-view .pv-row {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding: 9px 0;
+    border-bottom: 1px solid #ccc;
+    font-size: 17px;
+  }
+  .print-view .pv-time { font-weight: 700; min-width: 150px; flex: 0 0 150px; }
+  .print-view .pv-title2 { font-weight: 600; }
+  .print-view .pv-loc { color: #444; font-size: 15px; font-weight: 400; }
+  .print-view .pv-empty { color: #666; font-style: italic; font-size: 16px; padding: 9px 0; }
 
   /* Print */
   @media print {
     body { background: #fff; padding: 0; }
-    .apphead, .toolbar, .daytabs, .fab, dialog { display: none !important; }
-    .app { box-shadow: none; border-radius: 0; display: block; }
-    .main { padding: 0; }
-    .agenda-scroll { border: none; overflow: visible; max-height: none; }
-    .head, .corner, .timeaxis { position: static; }
-    .event { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none; }
-    @page { size: landscape; margin: 10mm; }
+    .page, .fab, dialog { display: none !important; }
+    .print-view { display: block; }
+    @page { size: portrait; margin: 16mm; }
   }
 </style>
 </head>
@@ -313,8 +333,8 @@
           <span class="weekrange" id="weekrange"></span>
         </div>
         <div class="toolbar-right">
-          <button id="printBtn" class="printOnly">Printen</button>
-          <button id="clearBtn" class="danger printOnly">Wis week</button>
+          <button id="printBtn">Printen</button>
+          <button id="clearBtn" class="danger">Wis week</button>
           <button id="newBtn" class="primary">+ Nieuw</button>
         </div>
       </div>
@@ -327,6 +347,8 @@
     </div>
   </div>
 </div>
+
+<div class="print-view" id="printView"></div>
 
 <button class="fab" id="fabBtn">+</button>
 
@@ -370,6 +392,8 @@
   var DAYS_SHORT = ["MA", "DI", "WO", "DO", "VR", "ZA", "ZO"];
   var DAYS_LETTER = ["M", "D", "W", "D", "V", "Z", "Z"];
 
+  var printViewEl = document.getElementById("printView");
+
   var DAY_START = 0;
   var DAY_END = 24;
 
@@ -406,6 +430,10 @@
   function addDays(date, n) { var d = new Date(date); d.setDate(d.getDate() + n); return d; }
   function isSameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
   function fmtShort(d) { return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short" }); }
+  function fmtFullDay(d) {
+    var s = d.toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
   function isMobile() { return window.matchMedia("(max-width: 760px)").matches; }
   function pad2(n) { return String(n).padStart(2, "0"); }
 
@@ -589,13 +617,65 @@
     updateAndRender();
   });
 
-  // ---- print ----
-  document.getElementById("printBtn").addEventListener("click", function () { window.print(); });
-  window.addEventListener("beforeprint", function () {
-    var dates = []; for (var i = 0; i < 7; i++) dates.push(addDays(currentMonday, i));
-    renderAgenda(dates);
+  // ---- print (grote, duidelijke dag-voor-dag lijst) ----
+  function buildPrintView() {
+    printViewEl.innerHTML = "";
+    var title = document.createElement("div");
+    title.className = "pv-title";
+    title.textContent = "Weekrooster";
+    var sunday = addDays(currentMonday, 6);
+    var sub = document.createElement("div");
+    sub.className = "pv-sub";
+    sub.textContent = "Week van " + fmtShort(currentMonday) + " t/m " + fmtShort(sunday);
+    printViewEl.appendChild(title);
+    printViewEl.appendChild(sub);
+
+    for (var i = 0; i < 7; i++) {
+      var d = addDays(currentMonday, i);
+      var iso = toISODate(d);
+      var dayEvents = events.filter(function (ev) { return ev.date === iso; })
+        .slice().sort(function (a, b) { return a.startHour - b.startHour; });
+
+      var dayEl = document.createElement("div");
+      dayEl.className = "pv-day";
+      var h2 = document.createElement("h2");
+      h2.textContent = fmtFullDay(d);
+      dayEl.appendChild(h2);
+
+      if (!dayEvents.length) {
+        var empty = document.createElement("div");
+        empty.className = "pv-empty";
+        empty.textContent = "Geen afspraken";
+        dayEl.appendChild(empty);
+      } else {
+        dayEvents.forEach(function (ev) {
+          var row = document.createElement("div");
+          row.className = "pv-row";
+          var time = document.createElement("span");
+          time.className = "pv-time";
+          time.textContent = pad2(ev.startHour) + ":00 – " + pad2(ev.endHour) + ":00";
+          var t = document.createElement("span");
+          t.className = "pv-title2";
+          t.textContent = ev.title;
+          row.appendChild(time);
+          row.appendChild(t);
+          if (ev.location) {
+            var loc = document.createElement("span");
+            loc.className = "pv-loc";
+            loc.textContent = "— " + ev.location;
+            row.appendChild(loc);
+          }
+          dayEl.appendChild(row);
+        });
+      }
+      printViewEl.appendChild(dayEl);
+    }
+  }
+  document.getElementById("printBtn").addEventListener("click", function () {
+    buildPrintView();
+    window.print();
   });
-  window.addEventListener("afterprint", updateAndRender);
+  window.addEventListener("beforeprint", buildPrintView);
 
   // ---- modal ----
   function fillHourSelect(select, from, to, selected) {
